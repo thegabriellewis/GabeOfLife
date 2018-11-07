@@ -14,6 +14,12 @@ import javafx.scene.layout.GridPane;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import java.util.Random;
+import java.util.Timer;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 
 
 /*	
@@ -29,19 +35,18 @@ public class Grid extends Application {
 	
 	Cell cells;
 	Cell[][] gridCells;
+	Cell[][] tempGridCells;
+	Cell[][] prevGridCells;
 	
 	static String dead = "dead";
 	static String alive = "alive";
 	
-	static Paint colorDead = Color.BLACK;
+	static Paint colorDead = Color.DARKBLUE;
 	static Paint colorAlive = Color.RED;
 	
-	static int gridWidth = 10;
-	static int gridLength = 10;
+	static int gridWidth = 20;
+	static int gridLength = 20;
 	
-	static String currentGrid[][] = new String[gridWidth][gridLength];
-	static String previousGrid[][] = new String[gridWidth][gridLength];
-	static String tempGrid[][] = new String[gridWidth][gridLength];
 	
 	public static void main(String[] args) { // main function
 		launch(args);
@@ -57,20 +62,24 @@ public class Grid extends Application {
 		TextField column = new TextField();
 		TextField row = new TextField();
 		Button button = new Button("enter");
+		Button button4 = new Button("random");
+		Button button2 = new Button("+1 generation");
+		Button button3 = new Button("life");
 
-		final int c1;
-		int r1;
 		button.setOnAction(e -> giveLife(Integer.valueOf(column.getText()),Integer.valueOf(row.getText())));//column.getText()
+		button2.setOnAction(e -> generation());
+		button3.setOnAction(e -> live());
+		button4.setOnAction(e -> randomGrid());
 		
 		//layout
 		VBox layout = new VBox(10);
 		layout.setPadding(new Insets(20,20,20,20));
-		layout.getChildren().addAll(column,row,button);
+		layout.getChildren().addAll(column,row,button,button4,button2, button3);
 		
 		Grid();
 		initializeGrid();
-		Scene planet = new Scene(grid, 710, 710);
-		Scene planet2 = new Scene(layout,300,200);
+		Scene planet = new Scene(grid, 910, 910);
+		Scene planet2 = new Scene(layout,300,250);
 		
 		window.setScene(planet);
 		secondary.setScene(planet2);
@@ -87,46 +96,60 @@ public class Grid extends Application {
 	
 	}
 	
-	public void initializeGrid() {
+	public void initializeGrid() { // +
 		cells = new Cell(gridWidth,gridLength);
 		gridCells = cells.InitializeCells(gridWidth, gridLength);
+		tempGridCells = cells.InitializeCells(gridWidth, gridLength);
+		prevGridCells = cells.InitializeCells(gridWidth, gridLength);
 		
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				currentGrid[x][y] = dead;
-				previousGrid[x][y] = dead;
-				
 				GridPane.setConstraints(gridCells[x][y].canvas,x,y);
 				grid.getChildren().addAll(gridCells[x][y].canvas);
 			}
 		}
 	}
 	
-	public void initializeTempGrid() {
+	public void randomGrid() {
+		initializeGrid();
+		Random rand = new Random();
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				tempGrid[x][y] = dead;
+				int  n = rand.nextInt(3) + 1;
+				if (n == 3) {
+					giveLife(x,y);
+				}
 			}
 		}
 	}
 	
-	public void giveLife(int col, int row) {
-		if ((col <= gridWidth) && (row <= gridLength)) {
+	public void giveLife(int col, int row) { // +
+		if ((col < gridWidth) && (row < gridLength)) {
 			Cell newLife = new Cell(col,row);
 			newLife.status = alive;
 			newLife.gc.setFill(colorAlive);
 			newLife.gc.fillRect(0, 0, 60, 60);
-			gridCells[col][row] = newLife;
+			tempGridCells[col][row] = newLife;
 			updateCells();
 		}
 	}
 	
-	public void updateCells() {
+	public void giveDeath(int col, int row) {
+		if ((col < gridWidth) && (row < gridLength)) {
+			Cell newLife = new Cell(col,row);
+			newLife.status = dead;
+			newLife.gc.setFill(colorDead);
+			newLife.gc.fillRect(0, 0, 60, 60);
+			tempGridCells[col][row] = newLife;
+			updateCells();
+		}
+	}
+	
+	public void updateCells() { // +
 		grid.getChildren().clear();
+		updateCurrentGrid();
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				currentGrid[x][y] = gridCells[x][y].status;
-				
 				GridPane.setConstraints(gridCells[x][y].canvas,x,y);
 				grid.getChildren().addAll(gridCells[x][y].canvas);
 			}
@@ -134,15 +157,15 @@ public class Grid extends Application {
 	}
 	
 	
-	public void live() {
-		initializeGrid();
-		while (!(extinction()) && !(changeless())) {
-			generation();
+	public void live(){
+		int count = 0;
+		while (true) {
+			generation(); 
 		}
+	    
 	}
 	
 	public void generation() {
-		initializeTempGrid();
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
 				birth(x,y);
@@ -152,53 +175,52 @@ public class Grid extends Application {
 			}
 		}
 		updatePreviousGrid();
-		updateCurrentGrid();
-		
+		updateCells();
 	}
 	
 	public void updatePreviousGrid() {
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				previousGrid[x][y] = currentGrid[x][y];
+				prevGridCells[x][y] = gridCells[x][y];
 			}
 		}
 	}
 	public void updateCurrentGrid() {
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				currentGrid[x][y] = tempGrid[x][y];
+				gridCells[x][y] = tempGridCells[x][y];
 			}
 		}
 	}
 	
 	public void birth(int col, int row) {
-		if (currentGrid[col][row] == dead) {
+		if (gridCells[col][row].status == dead) {
 			if (numNeighbors(col,row) == 3) {
-				tempGrid[col][row] = alive;
+				giveLife(col,row);
 			}
 		}
 	}
 	
 	public void deathByIsolation(int col, int row) {
-		if (currentGrid[col][row] == alive) {
+		if (gridCells[col][row].status == alive) {
 			if (numNeighbors(col,row) <= 1) {
-				tempGrid[col][row] = dead;
+				giveDeath(col,row);
 			}
 		}
 	}
 	
 	public void deathByOverPopulation(int col, int row) {
-		if (currentGrid[col][row] == alive) {
+		if (gridCells[col][row].status == alive) {
 			if (numNeighbors(col,row) >= 4) {
-				tempGrid[col][row] = dead;
+				giveDeath(col,row);
 			}
 		}
 	}
 	
 	public void survival(int col, int row) {
-		if (currentGrid[col][row] == alive) {
+		if (gridCells[col][row].status == alive) {
 			if (numNeighbors(col,row) == 2 || numNeighbors(col,row) == 3) {
-				tempGrid[col][row] = alive;
+				giveLife(col,row);
 			}
 		}
 	}
@@ -206,7 +228,7 @@ public class Grid extends Application {
 	public boolean extinction() { // If all cells are dead
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				if (currentGrid[x][y] == alive) {
+				if (gridCells[x][y].status == alive) {
 					return false;
 				}
 			}
@@ -217,7 +239,7 @@ public class Grid extends Application {
 	public boolean changeless() { // If there is no change between generations
 		for (int x = 0; x < gridWidth; x++) {
 			for (int y = 0; y < gridLength; y++) {
-				if (currentGrid[x][y] != previousGrid[x][y]) {
+				if (gridCells[x][y].status != prevGridCells[x][y].status) {
 					return false;
 				}
 			}
@@ -230,37 +252,143 @@ public class Grid extends Application {
 	}*/
 	
 	public int numNeighbors(int col, int row) {
-		
 		int count = 0;
-		/*if (col == 0) { // Cell is located along left edge of the grid
+		if (col == 0) { // Cell is located along left edge of the grid
 			if (row == 0) { // Cell is located in the top left corner
-				count = currentGrid[col+1][row] + currentGrid[col+1][row+1] + currentGrid[col][row+1];
+				if (gridCells[col+1][row].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row+1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col][row+1].status == alive) {
+					count += 1;
+				}
 			} else if (row == (gridLength-1)) { // Cell is located in the bottom left corner
-				count = currentGrid[col][row-1] + currentGrid[col+1][row-1] + currentGrid[col+1][row];
+				if (gridCells[col][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row].status == alive) {
+					count += 1;
+				}
 			} else { // Else, left-edge cell
-				count = currentGrid[col][row-1] + currentGrid[col+1][row-1] 
-						+ currentGrid[col+1][row] + currentGrid[col+1][row+1] + currentGrid[col][row+1];
+				if (gridCells[col][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col+1][row+1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col][row+1].status == alive) {
+					count += 1;
+				}
 			}
 		} else if (col == (gridWidth-1)) { // Cell is located along right edge of the grid
 			if (row == 0) { // Cell is located in the top right corner
-				count = currentGrid[col-1][row] + currentGrid[col-1][row+1] + currentGrid[col][row+1];
+				if (gridCells[col-1][row].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row+1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col][row+1].status == alive) {
+					count += 1;
+				}
+				
 			} else if (row == (gridLength-1)) { // Cell is located in the bottom right corner
-				count = currentGrid[col][row-1] + currentGrid[col-1][row-1] + currentGrid[col-1][row];
+				if (gridCells[col][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row].status == alive) {
+					count += 1;
+				}
+				
 			} else { // Else, right-edge cell
-				count = currentGrid[col][row-1] + currentGrid[col-1][row-1] 
-						+ currentGrid[col-1][row] + currentGrid[col-1][row+1] + currentGrid[col][row+1];
+				if (gridCells[col][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row-1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col-1][row+1].status == alive) {
+					count += 1;
+				}
+				if (gridCells[col][row+1].status == alive) {
+					count += 1;
+				}
 			}
 		} else if (row == 0) { // Cell is located along top edge of the grid
-			count = currentGrid[col-1][row] + currentGrid[col-1][row+1] 
-					+ currentGrid[col][row+1] + currentGrid[col+1][row+1] + currentGrid[col+1][row];
+			if (gridCells[col-1][row].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col-1][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row].status == alive) {
+				count += 1;
+			}
 		} else if (row == (gridLength-1)) { // Cell is located along bottom edge of the grid
-			count = currentGrid[col-1][row] + currentGrid[col-1][row-1] 
-					+ currentGrid[col][row-1] + currentGrid[col+1][row-1] + currentGrid[col+1][row];
+			if (gridCells[col-1][row].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col-1][row-1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col][row-1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row-1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row].status == alive) {
+				count += 1;
+			}
 		} else { // Else, middle cell
-			count = currentGrid[col][row-1] + currentGrid[col+1][row-1] 
-					+ currentGrid[col+1][row] + currentGrid[col+1][row+1] + currentGrid[col][row+1]
-					+ currentGrid[col-1][row+1] + currentGrid[col-1][row] + currentGrid[col-1][row-1];
-		}*/
+			if (gridCells[col][row-1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row-1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col+1][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col-1][row+1].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col-1][row].status == alive) {
+				count += 1;
+			}
+			if (gridCells[col-1][row-1].status == alive) {
+				count += 1;
+			}
+		}
 		return count;
 	}
 
